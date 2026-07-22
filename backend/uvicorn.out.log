@@ -1,0 +1,7 @@
+2026-07-22 17:22:10,809 | INFO | app.services.inference_service | rid=- | Loaded model checkpoint from c:\Users\SHAILEY NAYAK\OneDrive\Desktop\ai-medical-intelligence-platform\ai-medical-intelligence-platform\model\checkpoints\best_model.pt
+INFO:     127.0.0.1:54190 - "GET /health HTTP/1.1" 200 OK
+2026-07-22 17:22:41,453 | INFO | app.services.inference_service | rid=3cbdc696ac56 | Inference done label=Pneumonia conf=1.0000 ms=979.9
+2026-07-22 17:22:48,667 | INFO | app.services.gradcam_service | rid=3cbdc696ac56 | Grad-CAM done ms=7211.4 path=static\heatmaps\700fdd4a2faf47dd9f87efc78170123f_heatmap.png
+2026-07-22 17:22:48,669 | INFO | app.services.llm_service | rid=3cbdc696ac56 | LLM report generated ms=0.0
+INFO:     127.0.0.1:54191 - "POST /api/predict HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56123 - "GET /api/history?page=1&page_size=5 HTTP/1.1" 200 OK

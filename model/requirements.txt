@@ -1,0 +1,11 @@
+torch==2.3.1
+torchvision==0.18.1
+grad-cam==1.5.0
+scikit-learn==1.5.1
+matplotlib==3.9.0
+tqdm==4.66.4
+tensorboard==2.17.0
+pillow==10.4.0
+numpy==1.26.4
+pandas==2.2.2
+opencv-python-headless==4.10.0.84

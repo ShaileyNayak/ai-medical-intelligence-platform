@@ -1,0 +1,11 @@
+__pycache__
+*.pyc
+.venv
+.env
+*.db
+static/uploads/*
+static/heatmaps/*
+!static/uploads/.gitkeep
+!static/heatmaps/.gitkeep
+.pytest_cache
+.ruff_cache

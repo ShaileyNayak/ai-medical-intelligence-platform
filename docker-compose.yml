@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: medai
+      POSTGRES_USER: medai_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-medai_pass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medai_user -d medai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://medai_user:${DB_PASSWORD:-medai_pass}@db:5432/medai
+      MODEL_PATH: /app/model/checkpoints/best_model.pt
+      UPLOAD_DIR: /app/static/uploads
+      HEATMAP_DIR: /app/static/heatmaps
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/static:/app/static
+      - ./model/checkpoints:/app/model/checkpoints:ro
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  pgdata:
