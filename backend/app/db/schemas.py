@@ -49,6 +49,7 @@ class HealthResponse(BaseModel):
 
     status: str
     model_loaded: bool = False
+    models_loaded: dict[str, bool] = Field(default_factory=dict)
     model_version: str = ""
 
     model_config = {"protected_namespaces": ()}

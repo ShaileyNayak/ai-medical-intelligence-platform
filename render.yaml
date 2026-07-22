@@ -41,7 +41,13 @@ services:
       - key: LLM_TEMPERATURE
         value: "0.3"
       - key: MODEL_PATH
-        value: /app/model_weights/best_model.pth
+        value: /app/model_weights/chest_xray/best_model.pth
+      - key: CHEST_XRAY_MODEL_PATH
+        value: /app/model_weights/chest_xray/best_model.pth
+      - key: BRAIN_MRI_MODEL_PATH
+        value: /app/model_weights/brain_mri/best_model.pth
+      - key: SKIN_LESION_MODEL_PATH
+        value: /app/model_weights/skin_lesion/best_model.pth
       - key: MODEL_VERSION
         value: resnet18-v1.0
       - key: UPLOAD_DIR

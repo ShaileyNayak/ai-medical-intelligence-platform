@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.logging import new_request_id
@@ -9,7 +9,7 @@ from app.services.gradcam_service import get_gradcam_service
 from app.services.inference_service import get_inference_service
 from app.services.llm_service import get_llm_service
 from app.utils.image_utils import public_static_url, save_upload
-from app.utils.validators import validate_image_upload
+from app.utils.validators import validate_image_upload, validate_scan_type
 
 router = APIRouter(prefix="/api", tags=["predict"])
 
@@ -32,11 +32,16 @@ def record_to_predict_response(record) -> PredictResponse:
 
 @router.post("/predict", response_model=PredictResponse)
 async def predict(
-    file: UploadFile = File(..., description="Chest X-ray image (JPEG/PNG/WebP)"),
+    file: UploadFile = File(..., description="Medical image (JPEG/PNG/WebP)"),
+    scan_type: str = Form(
+        "chest_xray",
+        description="chest_xray | brain_mri | skin_lesion",
+    ),
     db: Session = Depends(get_db),
 ) -> PredictResponse:
-    """Upload an X-ray → model → Grad-CAM → LLM report → DB → JSON."""
+    """Upload image + scan_type → module model → Grad-CAM → LLM report → DB → JSON."""
     new_request_id()
+    scan_type = validate_scan_type(scan_type)
     validate_image_upload(file)
 
     try:
@@ -49,8 +54,10 @@ async def predict(
     llm = get_llm_service()
 
     try:
-        result = inference.predict(image_path)
-        _, heatmap_filename, region = gradcam.generate(image_path, result)
+        result = inference.predict(image_path, scan_type=scan_type)
+        _, heatmap_filename, region = gradcam.generate(
+            image_path, result, scan_type=scan_type
+        )
         report = llm.generate_report(
             label=result["label"],
             confidence=result["confidence"],

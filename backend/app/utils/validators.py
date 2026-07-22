@@ -1,6 +1,7 @@
 from fastapi import HTTPException, UploadFile
 
 from app.core.config import settings
+from app.models.registry import SCAN_TYPES
 
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
@@ -10,6 +11,16 @@ ALLOWED_CONTENT_TYPES = {
     "application/octet-stream",
 }
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def validate_scan_type(scan_type: str) -> str:
+    key = (scan_type or "").strip().lower()
+    if key not in SCAN_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown scan_type '{scan_type}'. Expected one of: {list(SCAN_TYPES)}",
+        )
+    return key
 
 
 def validate_image_upload(file: UploadFile) -> None:

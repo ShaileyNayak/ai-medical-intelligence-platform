@@ -30,8 +30,8 @@ app = FastAPI(
     title="AI Medical Intelligence Platform",
     version="1.0.0",
     description=(
-        "Chest X-ray classification (Normal vs Pneumonia) with Grad-CAM explainability "
-        "and LLM-assisted reporting. Educational prototype — not a medical device."
+        "Multi-disease imaging platform (chest X-ray, brain MRI, skin lesion) with "
+        "per-module Grad-CAM and LLM-assisted reporting. Educational prototype — not a medical device."
     ),
     lifespan=lifespan,
 )

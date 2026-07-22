@@ -16,10 +16,17 @@ body {
 
 @layer components {
   .clinical-panel {
-    @apply border border-clinical-line bg-clinical-panel shadow-panel;
+    border: 1px solid theme("colors.clinical.line");
+    background-color: theme("colors.clinical.panel");
+    box-shadow: theme("boxShadow.panel");
   }
 
   .clinical-label {
-    @apply text-xs font-semibold uppercase tracking-[0.14em] text-clinical-muted;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: theme("colors.clinical.muted");
   }
 }
