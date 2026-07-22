@@ -1,44 +1,75 @@
 services:
   db:
     image: postgres:16-alpine
+    container_name: medai-db
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: medai
-      POSTGRES_USER: medai_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-medai_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-medai}
+      POSTGRES_USER: ${POSTGRES_USER:-medai_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medai_pass}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - medai-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medai_user -d medai"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-medai_user} -d ${POSTGRES_DB:-medai}"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 10s
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: medai-backend
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://medai_user:${DB_PASSWORD:-medai_pass}@db:5432/medai
-      MODEL_PATH: /app/model/checkpoints/best_model.pt
+      DATABASE_URL: postgresql://${POSTGRES_USER:-medai_user}:${POSTGRES_PASSWORD:-medai_pass}@db:5432/${POSTGRES_DB:-medai}
+      MODEL_PATH: ${MODEL_PATH:-/app/model_weights/best_model.pth}
+      MODEL_VERSION: ${MODEL_VERSION:-resnet18-v1.0}
       UPLOAD_DIR: /app/static/uploads
       HEATMAP_DIR: /app/static/heatmaps
+      LLM_PROVIDER: ${LLM_PROVIDER:-stub}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.3}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend/static:/app/static
+      - ./backend/model_weights:/app/model_weights:ro
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend/static:/app/static
-      - ./model/checkpoints:/app/model/checkpoints:ro
+    networks:
+      - medai-net
 
   frontend:
-    build: ./frontend
-    depends_on:
-      - backend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    container_name: medai-frontend
+    restart: unless-stopped
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - medai-net
+
+networks:
+  medai-net:
+    driver: bridge
 
 volumes:
   pgdata:

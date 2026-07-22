@@ -19,25 +19,8 @@ export async function fetchHistory(page = 1, pageSize = 20) {
   return data;
 }
 
-export async function fetchHistoryItem(id) {
-  const { data } = await api.get(`/api/history/${id}`);
-  return data;
-}
-
-export async function deleteHistoryItem(id) {
-  const { data } = await api.delete(`/api/history/${id}`);
-  return data;
-}
-
-export async function fetchReport(id, regenerate = false) {
-  const { data } = await api.get(`/api/report/${id}`, {
-    params: { regenerate },
-  });
-  return data;
-}
-
 export async function fetchHealth() {
-  const { data } = await api.get("/health");
+  const { data } = await api.get("/api/health");
   return data;
 }
 

@@ -1,48 +1,79 @@
-# Byte-compiled
+# === Python ===
 __pycache__/
-*.py[codz]
+*.py[cod]
 *$py.class
-
-# Virtual envs & secrets
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 .venv/
 venv/
+ENV/
+env/
 .env
 .envrc
-
-# Data (keep samples folder structure)
-data/train/
-data/test/
-data/val/
-*.dcm
-
-# Uploads & heatmaps
-backend/static/uploads/*
-!backend/static/uploads/.gitkeep
-backend/static/heatmaps/*
-!backend/static/heatmaps/.gitkeep
-backend/*.db
-backend/**/*.db
-
-# Node
-frontend/node_modules/
-frontend/dist/
-
-# Model intermediates (best_model.pt is tracked for demo deploy)
-*.onnx
-*.pth
-model/checkpoints/*
-!model/checkpoints/.gitkeep
-!model/checkpoints/best_model.pt
-
-# Tooling
+*.db
+*.sqlite3
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
 htmlcov/
+.tox/
+.nox/
 .ipynb_checkpoints/
-.DS_Store
-Thumbs.db
+
+# === Node ===
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === Model weights & large binary artifacts ===
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.h5
+*.pkl
+*.joblib
+model/checkpoints/*
+!model/checkpoints/.gitkeep
+
+# === Data & runtime media ===
+data/train/
+data/test/
+data/val/
+*.dcm
+backend/static/uploads/*
+!backend/static/uploads/.gitkeep
+backend/static/heatmaps/*
+!backend/static/heatmaps/.gitkeep
+
+# === IDE / OS ===
 .idea/
 .vscode/
+.DS_Store
+Thumbs.db
+
+# === App secrets / local ===
 .streamlit/secrets.toml
+backend/*.log
+*.log

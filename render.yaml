@@ -1,0 +1,84 @@
+# Render Blueprint — AI Medical Intelligence Platform
+# https://render.com/docs/blueprint-spec
+#
+# Deploy: Dashboard → New → Blueprint → connect this repo
+# Or:    render blueprint launch
+#
+# After first backend deploy, set VITE_API_BASE_URL on the frontend
+# service to https://<medai-backend>.onrender.com and clear build cache / redeploy.
+
+previewsEnabled: false
+
+databases:
+  - name: medai-db
+    plan: free
+    databaseName: medai
+    user: medai_user
+
+services:
+  # -------------------------------------------------------------------------
+  # Backend — FastAPI (Docker)
+  # -------------------------------------------------------------------------
+  - type: web
+    name: medai-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: medai-db
+          property: connectionString
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: stub
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: LLM_TEMPERATURE
+        value: "0.3"
+      - key: MODEL_PATH
+        value: /app/model_weights/best_model.pth
+      - key: MODEL_VERSION
+        value: resnet18-v1.0
+      - key: UPLOAD_DIR
+        value: /app/static/uploads
+      - key: HEATMAP_DIR
+        value: /app/static/heatmaps
+      - key: LOG_LEVEL
+        value: INFO
+      # Comma-separated; update after frontend URL is known
+      - key: CORS_ORIGINS
+        sync: false
+      # Optional: HTTPS URL to download weights at boot if file missing
+      - key: MODEL_URL
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  # -------------------------------------------------------------------------
+  # Frontend — React static site (Vite build → CDN)
+  # -------------------------------------------------------------------------
+  - type: web
+    name: medai-frontend
+    runtime: static
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+    envVars:
+      # Must be the public backend origin, e.g. https://medai-backend.onrender.com
+      - key: VITE_API_BASE_URL
+        sync: false

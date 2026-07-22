@@ -28,8 +28,8 @@ with tab_predict:
                 result = response.json()
                 render_prediction(result, api_base=API_BASE)
                 fig = px.bar(
-                    x=[result["predicted_label"]],
-                    y=[result["confidence_score"] * 100],
+                    x=[result["prediction"]],
+                    y=[result["confidence"] * 100],
                     labels={"x": "Class", "y": "Confidence %"},
                     title="Confidence",
                 )

@@ -14,12 +14,24 @@ export function usePrediction() {
       setResult(data);
       return data;
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || "Prediction failed");
+      const detail = err.response?.data?.detail;
+      setError(
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d) => d.msg || JSON.stringify(d)).join(", ")
+            : err.message || "Prediction failed"
+      );
       return null;
     } finally {
       setLoading(false);
     }
   }
 
-  return { result, loading, error, runPrediction };
+  function reset() {
+    setResult(null);
+    setError(null);
+  }
+
+  return { result, loading, error, runPrediction, reset };
 }

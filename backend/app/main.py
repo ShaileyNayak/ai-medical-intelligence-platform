@@ -1,3 +1,5 @@
+"""FastAPI application entrypoint."""
+
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -6,9 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes_health import router as health_router
-from app.api.routes_history import router as history_router
-from app.api.routes_predict import router as predict_router
+from app.api import health_router, history_router, predict_router
 from app.core.config import settings
 from app.core.logging import new_request_id, setup_logging
 from app.db.database import init_db
@@ -22,7 +22,7 @@ async def lifespan(_app: FastAPI):
     Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
     Path(settings.heatmap_dir).mkdir(parents=True, exist_ok=True)
     init_db()
-    get_inference_service()  # warm-load model
+    get_inference_service()
     yield
 
 
@@ -64,4 +64,6 @@ app.include_router(history_router)
 
 static_root = Path("static")
 static_root.mkdir(exist_ok=True)
+(Path(settings.upload_dir)).mkdir(parents=True, exist_ok=True)
+(Path(settings.heatmap_dir)).mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_root)), name="static")

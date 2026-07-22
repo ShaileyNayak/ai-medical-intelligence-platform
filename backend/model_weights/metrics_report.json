@@ -1,0 +1,131 @@
+{
+  "best_model_path": "C:\\Users\\SHAILEY NAYAK\\OneDrive\\Desktop\\ai-medical-intelligence-platform\\ai-medical-intelligence-platform\\backend\\model_weights\\best_model.pth",
+  "best_val_acc": 1.0,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.6322027156429906,
+      "train_acc": 0.6451612903225806,
+      "val_loss": 0.4653717875480652,
+      "val_acc": 1.0,
+      "seconds": 5.62
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.15196757643453537,
+      "train_acc": 1.0,
+      "val_loss": 0.22794580459594727,
+      "val_acc": 1.0,
+      "seconds": 7.18
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.03128571471860332,
+      "train_acc": 1.0,
+      "val_loss": 0.0937226414680481,
+      "val_acc": 1.0,
+      "seconds": 9.11
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.02037901821876726,
+      "train_acc": 1.0,
+      "val_loss": 0.037727124989032745,
+      "val_acc": 1.0,
+      "seconds": 4.15
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.006610258933036558,
+      "train_acc": 1.0,
+      "val_loss": 0.02161693200469017,
+      "val_acc": 1.0,
+      "seconds": 4.15
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.0030877098381038633,
+      "train_acc": 1.0,
+      "val_loss": 0.013992533087730408,
+      "val_acc": 1.0,
+      "seconds": 3.89
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.005973893397998425,
+      "train_acc": 1.0,
+      "val_loss": 0.010400763712823391,
+      "val_acc": 1.0,
+      "seconds": 3.92
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.017135664219817808,
+      "train_acc": 1.0,
+      "val_loss": 0.009563557803630829,
+      "val_acc": 1.0,
+      "seconds": 3.99
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.0019342125047959627,
+      "train_acc": 1.0,
+      "val_loss": 0.008616515435278416,
+      "val_acc": 1.0,
+      "seconds": 4.05
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.002102788267356734,
+      "train_acc": 1.0,
+      "val_loss": 0.008556580170989037,
+      "val_acc": 1.0,
+      "seconds": 4.18
+    }
+  ],
+  "test_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "n_samples": 10,
+    "confusion_matrix": [
+      [
+        5,
+        0
+      ],
+      [
+        0,
+        5
+      ]
+    ],
+    "classification_report": {
+      "Normal": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 5.0
+      },
+      "Pneumonia": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 5.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 10.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 10.0
+      }
+    },
+    "auc": 1.0
+  }
+}

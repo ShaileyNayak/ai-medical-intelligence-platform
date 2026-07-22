@@ -1,27 +1,28 @@
+"""CRUD helpers for the predictions table."""
+
+from __future__ import annotations
+
 from sqlalchemy.orm import Session
 
-from app.models.db_models import Prediction
+from app.db.models import Prediction
 
 
 def create_prediction(
     db: Session,
     *,
-    image_filename: str,
-    predicted_label: str,
-    confidence_score: float,
+    image_path: str,
     heatmap_path: str,
-    llm_report: str,
-    model_version: str,
-    user_id: int | None = None,
+    prediction_label: str,
+    confidence: float,
+    report_text: str,
 ) -> Prediction:
+    """Insert a new prediction row and return the persisted record."""
     record = Prediction(
-        image_filename=image_filename,
-        predicted_label=predicted_label,
-        confidence_score=confidence_score,
+        image_path=image_path,
         heatmap_path=heatmap_path,
-        llm_report=llm_report,
-        model_version=model_version,
-        user_id=user_id,
+        prediction_label=prediction_label,
+        confidence=confidence,
+        report_text=report_text,
     )
     db.add(record)
     db.commit()
@@ -35,10 +36,18 @@ def list_predictions(
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[Prediction], int]:
+    """
+    Return a newest-first page of predictions and the total row count.
+
+    ``page`` is 1-based.
+    """
+    page = max(1, page)
+    page_size = max(1, page_size)
+
     query = db.query(Prediction)
     total = query.count()
     items = (
-        query.order_by(Prediction.created_at.desc())
+        query.order_by(Prediction.created_at.desc(), Prediction.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -47,23 +56,5 @@ def list_predictions(
 
 
 def get_prediction(db: Session, prediction_id: int) -> Prediction | None:
+    """Fetch a single prediction by primary key."""
     return db.query(Prediction).filter(Prediction.id == prediction_id).first()
-
-
-def delete_prediction(db: Session, prediction_id: int) -> bool:
-    record = get_prediction(db, prediction_id)
-    if not record:
-        return False
-    db.delete(record)
-    db.commit()
-    return True
-
-
-def update_report(db: Session, prediction_id: int, llm_report: str) -> Prediction | None:
-    record = get_prediction(db, prediction_id)
-    if not record:
-        return None
-    record.llm_report = llm_report
-    db.commit()
-    db.refresh(record)
-    return record

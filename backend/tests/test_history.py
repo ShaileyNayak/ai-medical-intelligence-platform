@@ -16,8 +16,14 @@ def test_history_list(client):
     body = response.json()
     assert "items" in body
     assert "total" in body
+    assert "page" in body
+    assert "page_size" in body
 
 
-def test_history_missing(client):
-    response = client.get("/api/history/999999")
-    assert response.status_code == 404
+def test_history_pagination(client):
+    response = client.get("/api/history", params={"page": 1, "page_size": 5})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["page"] == 1
+    assert body["page_size"] == 5
+    assert len(body["items"]) <= 5

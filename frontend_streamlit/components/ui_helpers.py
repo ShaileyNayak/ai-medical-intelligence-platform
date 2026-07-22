@@ -3,8 +3,8 @@ import streamlit as st
 
 def render_prediction(result: dict, api_base: str = "") -> None:
     st.subheader("Prediction")
-    st.write(f"**Label:** {result.get('predicted_label', '—')}")
-    conf = result.get("confidence_score")
+    st.write(f"**Label:** {result.get('prediction', '—')}")
+    conf = result.get("confidence")
     if conf is not None:
         st.write(f"**Confidence:** {conf * 100:.1f}%")
     st.write(f"**Model:** {result.get('model_version', '—')}")
@@ -17,7 +17,7 @@ def render_prediction(result: dict, api_base: str = "") -> None:
     if heatmap_url:
         cols[1].image(f"{api_base}{heatmap_url}", caption="Grad-CAM")
 
-    report = result.get("llm_report")
+    report = result.get("report_text")
     if report:
         st.subheader("LLM Assistive Report")
         st.write(report)

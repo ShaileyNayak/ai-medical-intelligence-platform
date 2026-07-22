@@ -9,24 +9,12 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from PIL import Image
-from torchvision import models, transforms
+from torchvision import transforms
 
 from app.core.config import settings
+from app.models.ml_model import IMAGENET_MEAN, IMAGENET_STD, build_resnet18
 
 logger = logging.getLogger(__name__)
-
-IMAGENET_MEAN = [0.485, 0.456, 0.406]
-IMAGENET_STD = [0.229, 0.224, 0.225]
-
-
-def build_resnet18(num_classes: int = 2, pretrained: bool = False) -> torch.nn.Module:
-    try:
-        weights = models.ResNet18_Weights.DEFAULT if pretrained else None
-        model = models.resnet18(weights=weights)
-    except Exception:
-        model = models.resnet18(weights=None)
-    model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
-    return model
 
 
 class InferenceService:
@@ -53,6 +41,8 @@ class InferenceService:
             candidates = [
                 path,
                 Path.cwd() / path,
+                Path.cwd() / "model_weights" / "best_model.pth",
+                Path(__file__).resolve().parents[2] / "model_weights" / "best_model.pth",
                 Path.cwd().parent / "model" / "checkpoints" / "best_model.pt",
                 Path(__file__).resolve().parents[3] / "model" / "checkpoints" / "best_model.pt",
             ]
