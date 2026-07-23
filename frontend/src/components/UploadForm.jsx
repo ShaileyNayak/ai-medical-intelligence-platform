@@ -153,13 +153,13 @@ export default function UploadForm({
           if (!disabled) inputRef.current?.click();
         }}
         className={[
-          "clinical-panel flex cursor-pointer flex-col items-center justify-center px-8 py-14 text-center transition",
+          "clinical-panel flex cursor-pointer flex-col items-center justify-center px-5 py-10 text-center transition sm:px-8 sm:py-14",
           dragging ? "border-clinical-teal bg-cyan-50/40" : "hover:border-clinical-teal/50",
           disabled ? "cursor-wait opacity-60" : "",
         ].join(" ")}
       >
         <p className="clinical-label">Study upload</p>
-        <p className="mt-3 font-display text-2xl text-clinical-ink md:text-3xl">
+        <p className="mt-3 font-display text-xl text-clinical-ink sm:text-2xl md:text-3xl">
           Drag & drop a {selectedOption?.label?.toLowerCase() || "scan"}
         </p>
         <p className="mt-2 max-w-md text-sm text-clinical-muted">

@@ -20,6 +20,16 @@ export async function fetchHistory(page = 1, pageSize = 20, scanType = null) {
   return data;
 }
 
+export async function fetchHistorySummary() {
+  const { data } = await api.get("/api/history/summary");
+  return data;
+}
+
+export async function fetchHistoryReport(predictionId) {
+  const { data } = await api.get(`/api/history/${predictionId}/report`);
+  return data;
+}
+
 export async function fetchHealth() {
   const { data } = await api.get("/api/health");
   return data;

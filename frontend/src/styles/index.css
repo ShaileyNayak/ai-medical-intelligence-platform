@@ -19,6 +19,13 @@ body {
     border: 1px solid theme("colors.clinical.line");
     background-color: theme("colors.clinical.panel");
     box-shadow: theme("boxShadow.panel");
+    border-radius: 0.125rem;
+    transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+  }
+
+  .clinical-panel-hover:hover {
+    box-shadow: theme("boxShadow.panelHover");
+    border-color: theme("colors.clinical.teal");
   }
 
   .clinical-label {
@@ -28,5 +35,9 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.14em;
     color: theme("colors.clinical.muted");
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-sm bg-clinical-line/70;
   }
 }
