@@ -18,7 +18,10 @@ class PredictResponse(BaseModel):
     """POST /api/predict response."""
 
     id: int
-    scan_type: str = Field(..., description="chest_xray | brain_mri | skin_lesion")
+    scan_type: str = Field(
+        ...,
+        description="Primary category / imaging module: chest_xray | brain_mri | skin_lesion",
+    )
     prediction_label: str = Field(
         ...,
         description='JSON-serialized list of {"label","confidence"} as stored in the DB',
@@ -47,10 +50,22 @@ class HistoryItem(BaseModel):
     """Single row in GET /api/history."""
 
     id: int
-    scan_type: str
-    prediction_label: str
-    predictions: list[LabelConfidence] = Field(default_factory=list)
-    prediction: str
+    scan_type: str = Field(
+        ...,
+        description="Primary category / imaging module: chest_xray | brain_mri | skin_lesion",
+    )
+    prediction_label: str = Field(
+        ...,
+        description=(
+            'JSON-serialized list of {"label","confidence"} as stored in the DB; '
+            "queryable via parse_prediction_label / find_predictions_by_label"
+        ),
+    )
+    predictions: list[LabelConfidence] = Field(
+        default_factory=list,
+        description="Parsed conditions from prediction_label (queryable view)",
+    )
+    prediction: str = Field(..., description="Primary / display label")
     confidence: float = Field(ge=0.0, le=1.0)
     heatmap_url: str
     image_url: str
@@ -91,6 +106,57 @@ class HistoryResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class CategorySummary(BaseModel):
+    """Per-category stats for GET /api/history/summary."""
+
+    total: int = Field(..., ge=0, description="Number of prediction rows in this category")
+    conditions: dict[str, int] = Field(
+        default_factory=dict,
+        description="Detected condition label → occurrence count within prediction_label JSON",
+    )
+    avg_confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Mean primary confidence across rows in this category",
+    )
+
+
+class HistorySummaryResponse(BaseModel):
+    """
+    GET /api/history/summary — map of scan_type → CategorySummary.
+
+    Extra categories beyond the known modules are allowed if present in the DB.
+    """
+
+    chest_xray: CategorySummary
+    brain_mri: CategorySummary
+    skin_lesion: CategorySummary
+
+    model_config = {"extra": "allow"}
+
+
+class HistoryReportResponse(BaseModel):
+    """GET /api/history/{prediction_id}/report — stored report for re-viewing."""
+
+    id: int
+    scan_type: str = Field(
+        ...,
+        description="Primary category: chest_xray | brain_mri | skin_lesion",
+    )
+    predictions: list[LabelConfidence] = Field(
+        ...,
+        description="All detected conditions with confidence from prediction_label JSON",
+    )
+    report_text: str = Field(..., description="Full stored LLM assistive report")
+    heatmap_url: str = Field(..., description="Public URL for the stored Grad-CAM overlay")
+    image_url: str = Field(
+        default="",
+        description="Public URL for the original uploaded study (for side-by-side review)",
+    )
+    created_at: datetime | None = None
 
 
 class HealthResponse(BaseModel):

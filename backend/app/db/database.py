@@ -69,6 +69,14 @@ def _sqlite_ensure_predictions_schema(eng: Engine) -> None:
                 )
             )
 
+        # Ensure category index exists on older local DBs created without it
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_predictions_scan_type "
+                "ON predictions (scan_type)"
+            )
+        )
+
         # Convert legacy plain-string labels to JSON lists when needed
         rows = conn.execute(
             text("SELECT id, prediction_label, confidence FROM predictions")
@@ -90,6 +98,7 @@ def _sqlite_ensure_predictions_schema(eng: Engine) -> None:
                 text("UPDATE predictions SET prediction_label = :payload WHERE id = :id"),
                 {"payload": payload, "id": row[0]},
             )
+
 
 
 def init_db() -> None:
