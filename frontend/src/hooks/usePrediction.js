@@ -6,11 +6,11 @@ export function usePrediction() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  async function runPrediction(file) {
+  async function runPrediction(file, scanType = "chest_xray") {
     setLoading(true);
     setError(null);
     try {
-      const data = await predictImage(file);
+      const data = await predictImage(file, scanType);
       setResult(data);
       return data;
     } catch (err) {

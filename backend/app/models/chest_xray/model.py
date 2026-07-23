@@ -85,7 +85,11 @@ class ChestXrayModel:
 
     def make_gradcam(self) -> GradCAM:
         assert self.model is not None
-        return GradCAM(self.model, self.get_target_layer())
+        return GradCAM(
+            self.model,
+            self.get_target_layer(),
+            multi_label=self.multi_label,
+        )
 
     def preprocess(self, image_path: str) -> tuple[torch.Tensor, Image.Image]:
         image = Image.open(image_path).convert("RGB")
@@ -106,16 +110,22 @@ class ChestXrayModel:
                 for i in range(len(self.labels))
                 if float(probs[i]) >= MULTI_LABEL_THRESHOLD
             ]
-            if not positives:
-                # Always surface top score so the UI has a primary label
-                top_i = int(np.argmax(probs))
-                positives = [{"label": self.labels[top_i], "confidence": float(probs[top_i])}]
             positives.sort(key=lambda x: x["confidence"], reverse=True)
-            primary = positives[0]
-            class_index = self.labels.index(primary["label"])
+            top_i = int(np.argmax(probs))
+            # Primary for Grad-CAM / DB even if no class clears the threshold
+            if positives:
+                primary = positives[0]
+                class_index = self.labels.index(primary["label"])
+            else:
+                primary = {
+                    "label": self.labels[top_i],
+                    "confidence": float(probs[top_i]),
+                }
+                class_index = top_i
             probabilities = {self.labels[i]: float(probs[i]) for i in range(len(self.labels))}
             label = primary["label"]
             confidence = primary["confidence"]
+            # API contract: only classes above threshold (may be empty)
             predictions = positives
         else:
             probs = F.softmax(logits, dim=1).cpu().numpy()[0]

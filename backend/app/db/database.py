@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from collections.abc import Generator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 from app.db.models import Base
+
+logger = logging.getLogger(__name__)
 
 
 def _is_sqlite(url: str) -> bool:
@@ -40,9 +44,59 @@ engine = create_db_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def _sqlite_ensure_predictions_schema(eng: Engine) -> None:
+    """
+    Lightweight SQLite upgrade path for local/dev DBs that were created with
+    ``create_all`` before ``scan_type`` / JSON ``prediction_label``.
+
+    Production should use Alembic (``alembic upgrade head``).
+    """
+    insp = inspect(eng)
+    if "predictions" not in insp.get_table_names():
+        return
+
+    columns = {c["name"]: c for c in insp.get_columns("predictions")}
+    with eng.begin() as conn:
+        if "scan_type" not in columns:
+            logger.info("Adding predictions.scan_type for local SQLite schema")
+            conn.execute(
+                text("ALTER TABLE predictions ADD COLUMN scan_type VARCHAR(32)")
+            )
+            conn.execute(
+                text(
+                    "UPDATE predictions SET scan_type = 'chest_xray' "
+                    "WHERE scan_type IS NULL OR scan_type = ''"
+                )
+            )
+
+        # Convert legacy plain-string labels to JSON lists when needed
+        rows = conn.execute(
+            text("SELECT id, prediction_label, confidence FROM predictions")
+        ).fetchall()
+        for row in rows:
+            raw = row[1]
+            conf = float(row[2] or 0.0)
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    continue
+            except (TypeError, json.JSONDecodeError):
+                pass
+            payload = json.dumps(
+                [{"label": str(raw), "confidence": conf}],
+                separators=(",", ":"),
+            )
+            conn.execute(
+                text("UPDATE predictions SET prediction_label = :payload WHERE id = :id"),
+                {"payload": payload, "id": row[0]},
+            )
+
+
 def init_db() -> None:
     """Create tables if they do not exist (dev-friendly; use Alembic in prod)."""
     Base.metadata.create_all(bind=engine)
+    if _is_sqlite(settings.database_url):
+        _sqlite_ensure_predictions_schema(engine)
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -5,17 +5,18 @@ const api = axios.create({
   timeout: 120000,
 });
 
-export async function predictImage(file) {
+export async function predictImage(file, scanType = "chest_xray") {
   const form = new FormData();
   form.append("file", file);
+  form.append("scan_type", scanType);
   const { data } = await api.post("/api/predict", form);
   return data;
 }
 
-export async function fetchHistory(page = 1, pageSize = 20) {
-  const { data } = await api.get("/api/history", {
-    params: { page, page_size: pageSize },
-  });
+export async function fetchHistory(page = 1, pageSize = 20, scanType = null) {
+  const params = { page, page_size: pageSize };
+  if (scanType) params.scan_type = scanType;
+  const { data } = await api.get("/api/history", { params });
   return data;
 }
 

@@ -4,6 +4,7 @@ from app.db.schemas import (  # noqa: F401
     HealthResponse,
     HistoryItem,
     HistoryResponse,
+    LabelConfidence,
     PredictResponse,
 )
 

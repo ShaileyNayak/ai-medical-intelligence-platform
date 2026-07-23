@@ -2,13 +2,19 @@
 
 **Deep Learning · Explainable AI (Grad-CAM) · LLM-Assisted Reporting · FastAPI · React · Docker**
 
-End-to-end demo that analyzes a chest X-ray, predicts **Normal vs Pneumonia**, explains the decision with a **Grad-CAM** heatmap, and generates a **plain-language assistive report** via an LLM (or a safe template fallback). Results are exposed through a REST API, stored in a database, and shown in a clinical-style React UI.
+End-to-end multi-disease imaging demo. The user selects a **scan type**, uploads an image, and the backend routes to the matching module via a **model registry**. Each module runs inference + **Grad-CAM**, then an **LLM** (or template) writes a plain-language assistive report. Results are stored in a database and shown in a React UI.
+
+| Module | `scan_type` | Task | Labels |
+|--------|-------------|------|--------|
+| Chest X-ray | `chest_xray` | **Multi-label** | Normal, Pneumonia, COVID-19, Tuberculosis |
+| Brain MRI | `brain_mri` | **Binary** | Tumor, No Tumor |
+| Skin lesion *(stretch)* | `skin_lesion` | **Binary** | Malignant, Benign |
 
 > **Not a medical device.** This is an educational / portfolio prototype for technical evaluation. It must not be used for clinical diagnosis or treatment decisions.
 
 | | |
 |---|---|
-| **Domain** | Medical image analysis (chest X-ray) |
+| **Domain** | Multi-disease medical image analysis |
 | **Repo layout** | See [PROJECT_SPEC.md](PROJECT_SPEC.md) |
 | **License** | [MIT](LICENSE) |
 
@@ -35,18 +41,19 @@ End-to-end demo that analyzes a chest X-ray, predicts **Normal vs Pneumonia**, e
 
 ### What it does
 
-1. User uploads a chest X-ray (PNG / JPEG / WebP).
-2. Backend runs a **ResNet18** (ImageNet transfer learning) classifier.
-3. **Grad-CAM** highlights image regions that most influenced the prediction.
-4. An **LLM report generator** (OpenAI or Gemini) writes a short, non-specialist summary — always ending with a medical disclaimer. Without an API key, a template report is used.
-5. The full record is saved to **SQLite** (local) or **PostgreSQL** (Docker).
-6. The React UI shows prediction, confidence, heatmap, report, and history.
+1. User picks a **scan type** (Chest X-ray / Brain MRI / Skin Lesion) and uploads an image (PNG / JPEG / WebP).
+2. Backend validates `scan_type` and loads the module through **`registry.get_model(scan_type)`**.
+3. The module’s CNN runs inference; **Grad-CAM** uses that module’s target layer.
+4. An **LLM report generator** addresses one or many conditions (ranked by confidence) and always appends a physician-confirmation disclaimer. Without an API key, a template report is used.
+5. The record is saved with `scan_type` and a JSON list of `{label, confidence}` in **SQLite** (local) or **PostgreSQL** (Docker).
+6. The React UI shows scan type, single- or multi-condition results, heatmap, report, and history.
 
 ### In scope
 
-- Binary classification: Normal / Pneumonia  
-- Grad-CAM overlay PNGs under `static/heatmaps/`  
-- LLM or template assistive reports  
+- Multi-label chest X-ray + binary brain MRI (+ optional skin lesion)  
+- Per-module weights under `backend/model_weights/<scan_type>/`  
+- Per-module Grad-CAM overlays under `static/heatmaps/`  
+- LLM or template assistive reports for multi-condition lists  
 - REST API + React dashboard + optional Streamlit UI  
 - Docker Compose (API + UI + Postgres)
 
@@ -60,6 +67,34 @@ End-to-end demo that analyzes a chest X-ray, predicts **Normal vs Pneumonia**, e
 
 ## 2. Architecture
 
+### High-level design
+
+Three **independent** disease modules share one FastAPI surface. The frontend always sends `scan_type` with the upload. A central **registry** maps that string to the correct model package and Grad-CAM implementation.
+
+```text
+scan_type ──► app.models.registry.get_model(scan_type)
+                    │
+        ┌───────────┼───────────┐
+        ▼           ▼           ▼
+  chest_xray   brain_mri   skin_lesion
+  (multi-label) (binary)    (binary)
+  model.py      model.py    model.py
+  gradcam.py    gradcam.py  gradcam.py
+        │           │           │
+        └───────────┼───────────┘
+                    ▼
+         LLM report (list of conditions)
+                    ▼
+         DB: scan_type + prediction_label JSON
+```
+
+| Concern | Chest X-ray | Brain MRI / Skin lesion |
+|---------|-------------|-------------------------|
+| Output head | Multi-label logits + sigmoid | Softmax over 2 classes |
+| API `predictions` | **List** of all classes with confidence ≥ **0.5** | **List of length 1** `{label, confidence}` |
+| Grad-CAM class | Highest sigmoid probability | Predicted class (argmax) |
+| Weights path | `model_weights/chest_xray/best_model.pth` | `model_weights/brain_mri/` or `…/skin_lesion/` |
+
 ### Mermaid
 
 ```mermaid
@@ -70,25 +105,36 @@ flowchart LR
 
   subgraph API["FastAPI · Uvicorn"]
     H["/api/health"]
-    P["/api/predict"]
+    P["/api/predict\n+ scan_type"]
     Hist["/api/history"]
   end
 
-  subgraph Services
-    Inf[Inference · ResNet18]
-    XAI[Grad-CAM]
-    LLM[LLM Report Generator]
+  subgraph Registry["app.models.registry"]
+    GM["get_model(scan_type)"]
   end
 
-  subgraph Data
+  subgraph Modules
+    CX[chest_xray\nmulti-label]
+    MRI[brain_mri\nbinary]
+    SK[skin_lesion\nbinary]
+  end
+
+  subgraph Shared
+    LLM[LLM Report Generator]
     DB[(SQLite / PostgreSQL)]
     Static[(static/uploads · heatmaps)]
   end
 
-  UI -->|HTTPS REST| H
-  UI -->|multipart image| P
+  UI -->|multipart file + scan_type| P
+  UI --> H
   UI --> Hist
-  P --> Inf --> XAI --> LLM
+  P --> GM
+  GM --> CX
+  GM --> MRI
+  GM --> SK
+  CX --> LLM
+  MRI --> LLM
+  SK --> LLM
   P --> Static
   P --> DB
   Hist --> DB
@@ -97,46 +143,48 @@ flowchart LR
 ### ASCII
 
 ```
-      +---------------------------+
-      |   CLIENT (React / Vite)   |
-      |  Upload X-ray · results   |
-      |  Grad-CAM · report · hist |
-      +-------------+-------------+
-                    |  REST / JSON
-                    v
-      +---------------------------+
-      |   FastAPI  (Uvicorn)      |
-      |  /api/predict             |
-      |  /api/history             |
-      |  /api/health              |
-      +------+-------------+------+
-             |             |
-             v             v
-      +-------------+   +------------------+
-      | Inference   |   | Persistence      |
-      | ResNet18    |   | SQLAlchemy ORM   |
-      | Grad-CAM    |   | SQLite/Postgres  |
-      +------+------+   +------------------+
-             |
-             v
-      +------------------+
-      | LLM reporting    |
-      | OpenAI / Gemini  |
-      | or template stub |
-      +------------------+
-
-  Docker Compose:  frontend ↔ backend ↔ db (Postgres)
-  Volumes:         uploads, heatmaps, model_weights
+      +----------------------------------+
+      |   CLIENT (React / Vite)          |
+      |  Scan-type selector · upload     |
+      |  Multi/single results · history  |
+      +----------------+-----------------+
+                       |  REST / JSON
+                       v
+      +----------------------------------+
+      |   FastAPI  (Uvicorn)             |
+      |  POST /api/predict               |
+      |    form: file + scan_type        |
+      |  GET  /api/history [?scan_type]  |
+      |  GET  /api/health                |
+      +---------+------------------------+
+                |
+                v
+      +----------------------------------+
+      |  registry.get_model(scan_type)   |
+      +----+----------+----------+-------+
+           |          |          |
+           v          v          v
+      chest_xray  brain_mri  skin_lesion
+      Grad-CAM    Grad-CAM   Grad-CAM
+           |          |          |
+           +-----+----+-----+----+
+                 v
+           LLM / template report
+                 v
+           predictions table
+           (scan_type + JSON labels)
 ```
 
 ### Request flow (`POST /api/predict`)
 
-1. Validate & save upload → `static/uploads/`  
-2. Run model → label + confidence  
-3. Grad-CAM → `static/heatmaps/`  
-4. LLM / template → `report_text`  
-5. Insert row into `predictions`  
-6. Return JSON: prediction, confidence, heatmap_url, report_text, …
+1. Validate `scan_type` (`chest_xray` \| `brain_mri` \| `skin_lesion`) — **400** if unknown; **422** if missing.  
+2. Validate & save upload → `static/uploads/`.  
+3. `module = get_model(scan_type)` → `module.predict(...)`.  
+4. Shape `predictions`: multi-label threshold list **or** single binary entry.  
+5. Module Grad-CAM → `static/heatmaps/`.  
+6. LLM / template report over the condition list.  
+7. Insert row (`scan_type`, JSON `prediction_label`, primary `confidence`, …).  
+8. Return JSON including `scan_type`, `predictions`, `prediction_label`, URLs, report.
 
 ---
 
@@ -144,9 +192,10 @@ flowchart LR
 
 | Layer | Technologies |
 |-------|----------------|
-| **Deep learning** | PyTorch, torchvision, ResNet18 (ImageNet pretrained) |
-| **XAI** | Custom Grad-CAM (`app/models/gradcam.py`) on ResNet `layer4` |
-| **LLM** | OpenAI API and/or Google Gemini; template fallback |
+| **Deep learning** | PyTorch, torchvision, ResNet18 per module (ImageNet transfer) |
+| **XAI** | Per-module Grad-CAM (`app/models/<scan_type>/gradcam.py`) on ResNet `layer4` |
+| **Routing** | `app.models.registry.get_model(scan_type)` |
+| **LLM** | OpenAI API and/or Google Gemini; multi-condition template fallback |
 | **API** | FastAPI, Uvicorn, Pydantic, python-multipart |
 | **Database** | SQLAlchemy 2.x · SQLite (dev) · PostgreSQL 16 (Docker) · Alembic |
 | **Frontend** | React 18, Vite, Tailwind CSS, Axios, React Router |
@@ -164,11 +213,12 @@ ai-medical-intelligence-platform/
 │   ├── app/
 │   │   ├── api/             # routes_predict, routes_history, routes_health
 │   │   ├── db/              # models, crud, database, schemas
-│   │   ├── models/          # ml_model.py, gradcam.py
-│   │   ├── llm/             # report_generator.py
+│   │   ├── models/          # registry.py + chest_xray|brain_mri|skin_lesion/
+│   │   ├── llm/             # report_generator.py (multi-condition prompts)
 │   │   └── services/        # inference, gradcam, llm wrappers
-│   ├── model_weights/       # best_model.pth (local / mounted in Docker)
+│   ├── model_weights/       # chest_xray/ · brain_mri/ · skin_lesion/
 │   ├── static/uploads|heatmaps/
+│   ├── alembic/             # 0002_scan_type_json_labels, …
 │   ├── tests/
 │   ├── Dockerfile
 │   └── requirements.txt
@@ -177,8 +227,8 @@ ai-medical-intelligence-platform/
 │   ├── Dockerfile           # multi-stage → nginx
 │   └── nginx.conf
 ├── frontend_streamlit/      # Optional Streamlit UI
-├── model/                   # Training scripts & checkpoints
-├── notebooks/               # train_model.ipynb
+├── models/                  # Per-module training helpers (optional)
+├── notebooks/               # train_chest_xray.ipynb, train_brain_mri.ipynb
 ├── data/                    # Dataset (gitignored) + samples/
 ├── docs/                    # Architecture notes, PDF report
 ├── docker-compose.yml
@@ -380,39 +430,173 @@ Interactive OpenAPI docs are served at **`/docs`** (Swagger) and **`/redoc`**.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/health` | Liveness + whether model weights loaded |
-| `POST` | `/api/predict` | Upload X-ray → prediction, heatmap, report, DB write |
-| `GET` | `/api/history` | Paginated history (`page`, `page_size`) |
+| `GET` | `/api/health` | Liveness + per-module `models_loaded` status |
+| `POST` | `/api/predict` | Upload image + **`scan_type`** → prediction(s), heatmap, report, DB write |
+| `GET` | `/api/history` | Paginated history (`page`, `page_size`, optional `scan_type`) |
+
+### Response shape notes
+
+Every successful `POST /api/predict` returns:
+
+| Field | Meaning |
+|-------|---------|
+| `scan_type` | Module that ran (`chest_xray` \| `brain_mri` \| `skin_lesion`) |
+| `predictions` | Parsed list of `{ "label", "confidence" }` |
+| `prediction_label` | Same list, **JSON-serialized** (as stored in the DB) |
+| `prediction` | Primary / highest-confidence label (UI convenience) |
+| `confidence` | Primary confidence (0–1) |
+
+**Multi-label vs single-label**
+
+| `scan_type` | `predictions` format |
+|-------------|----------------------|
+| `chest_xray` | **Zero or more** conditions with confidence ≥ **0.5** (ranked highest first). May include several co-occurring findings. |
+| `brain_mri` | **Exactly one** `{label, confidence}` — `Tumor` or `No Tumor`. |
+| `skin_lesion` | **Exactly one** `{label, confidence}` — `Malignant` or `Benign`. |
+
+**Errors on predict:** `400` invalid file / unknown `scan_type` · `422` missing required `scan_type` (or other validation) · `500` pipeline failure.
+
+---
 
 ### `POST /api/predict`
 
-**Request:** `multipart/form-data` with field `file` (image).
+**Request:** `multipart/form-data`
 
-**Response `200` (shape):**
+| Field | Required | Description |
+|-------|----------|-------------|
+| `file` | yes | Image (JPEG / PNG / WebP) |
+| `scan_type` | yes | `chest_xray` \| `brain_mri` \| `skin_lesion` |
+
+---
+
+#### Example — Chest X-ray (multi-label)
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/predict" \
+  -F "scan_type=chest_xray" \
+  -F "file=@/path/to/chest.png"
+```
+
+**Response `200`:**
 
 ```json
 {
-  "id": 1,
+  "id": 12,
+  "scan_type": "chest_xray",
   "prediction": "Pneumonia",
-  "confidence": 0.9421,
-  "heatmap_url": "/static/heatmaps/<id>_heatmap.png",
-  "image_url": "/static/uploads/<id>.png",
-  "report_text": "…plain-language summary…\n\nDisclaimer: This is not a medical diagnosis…",
-  "created_at": "2026-07-22T10:15:32.000000"
+  "prediction_label": "[{\"label\":\"Pneumonia\",\"confidence\":0.91},{\"label\":\"COVID-19\",\"confidence\":0.67}]",
+  "predictions": [
+    { "label": "Pneumonia", "confidence": 0.91 },
+    { "label": "COVID-19", "confidence": 0.67 }
+  ],
+  "confidence": 0.91,
+  "heatmap_url": "/static/heatmaps/abc123_heatmap.png",
+  "image_url": "/static/uploads/abc123.png",
+  "report_text": "AI chest X-ray summary\n\nThe automated reading flagged more than one possible finding…\n\nDisclaimer: This is not a medical diagnosis. … A licensed physician …",
+  "created_at": "2026-07-23T10:15:32.000000Z"
 }
 ```
 
-**Errors:** `400` invalid file · `422` validation · `500` pipeline failure.
+Only labels with confidence ≥ 0.5 appear in `predictions`. Classes below threshold (e.g. Tuberculosis at 0.22) are omitted.
+
+---
+
+#### Example — Brain MRI (single-label)
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/predict" \
+  -F "scan_type=brain_mri" \
+  -F "file=@/path/to/brain_mri.png"
+```
+
+**Response `200`:**
+
+```json
+{
+  "id": 13,
+  "scan_type": "brain_mri",
+  "prediction": "Tumor",
+  "prediction_label": "[{\"label\":\"Tumor\",\"confidence\":0.87}]",
+  "predictions": [
+    { "label": "Tumor", "confidence": 0.87 }
+  ],
+  "confidence": 0.87,
+  "heatmap_url": "/static/heatmaps/def456_heatmap.png",
+  "image_url": "/static/uploads/def456.png",
+  "report_text": "AI brain MRI summary\n\nThe automated reading suggests a finding of \"Tumor\"…\n\nDisclaimer: This is not a medical diagnosis. … A licensed physician …",
+  "created_at": "2026-07-23T10:16:01.000000Z"
+}
+```
+
+---
+
+#### Example — Skin lesion (single-label)
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/predict" \
+  -F "scan_type=skin_lesion" \
+  -F "file=@/path/to/lesion.jpg"
+```
+
+**Response `200`:**
+
+```json
+{
+  "id": 14,
+  "scan_type": "skin_lesion",
+  "prediction": "Benign",
+  "prediction_label": "[{\"label\":\"Benign\",\"confidence\":0.74}]",
+  "predictions": [
+    { "label": "Benign", "confidence": 0.74 }
+  ],
+  "confidence": 0.74,
+  "heatmap_url": "/static/heatmaps/ghi789_heatmap.png",
+  "image_url": "/static/uploads/ghi789.jpg",
+  "report_text": "AI skin lesion summary\n\nThe automated reading leans toward \"Benign\"…\n\nDisclaimer: This is not a medical diagnosis. … A licensed physician …",
+  "created_at": "2026-07-23T10:16:40.000000Z"
+}
+```
+
+---
+
+#### Example — invalid / missing `scan_type`
+
+```bash
+# Unknown value → 400
+curl -X POST "http://127.0.0.1:8000/api/predict" \
+  -F "scan_type=hand_xray" \
+  -F "file=@/path/to/img.png"
+
+# Missing field → 422
+curl -X POST "http://127.0.0.1:8000/api/predict" \
+  -F "file=@/path/to/img.png"
+```
+
+---
 
 ### `GET /api/history`
 
 ```http
 GET /api/history?page=1&page_size=20
+GET /api/history?page=1&page_size=20&scan_type=brain_mri
 ```
 
 ```json
 {
-  "items": [ /* HistoryItem[] — same fields as predict */ ],
+  "items": [
+    {
+      "id": 13,
+      "scan_type": "brain_mri",
+      "prediction": "Tumor",
+      "prediction_label": "[{\"label\":\"Tumor\",\"confidence\":0.87}]",
+      "predictions": [{ "label": "Tumor", "confidence": 0.87 }],
+      "confidence": 0.87,
+      "heatmap_url": "/static/heatmaps/def456_heatmap.png",
+      "image_url": "/static/uploads/def456.png",
+      "report_text": "…",
+      "created_at": "2026-07-23T10:16:01.000000Z"
+    }
+  ],
   "total": 42,
   "page": 1,
   "page_size": 20
@@ -425,6 +609,11 @@ GET /api/history?page=1&page_size=20
 {
   "status": "ok",
   "model_loaded": true,
+  "models_loaded": {
+    "chest_xray": true,
+    "brain_mri": false,
+    "skin_lesion": false
+  },
   "model_version": "resnet18-v1.0"
 }
 ```
@@ -434,12 +623,15 @@ GET /api/history?page=1&page_size=20
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | Integer PK | Auto-increment |
+| `scan_type` | String(32), indexed | `chest_xray` \| `brain_mri` \| `skin_lesion` |
 | `image_path` | String | Stored upload filename/path |
 | `heatmap_path` | String | Grad-CAM filename/path |
-| `prediction_label` | String | e.g. `Normal` / `Pneumonia` |
-| `confidence` | Float | Softmax score 0–1 |
+| `prediction_label` | Text | **JSON list** of `{label, confidence}` (multi- or single-label) |
+| `confidence` | Float | Primary / max confidence 0–1 |
 | `report_text` | Text | LLM / template report |
 | `created_at` | Timestamp | Server time (indexed) |
+
+Alembic migration: `backend/alembic/versions/0002_scan_type_json_labels.py`.
 
 ---
 

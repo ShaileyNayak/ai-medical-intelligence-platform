@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any, Sequence
 
 from app.llm.report_generator import generate_report as llm_generate_report
 
@@ -14,14 +15,18 @@ class LLMService:
     def generate_report(
         self,
         *,
-        label: str,
-        confidence: float,
+        label: str | None = None,
+        confidence: float | None = None,
+        conditions: Sequence[Any] | None = None,
+        scan_type: str | None = None,
         region_description: str = "",
     ) -> str:
         t0 = time.perf_counter()
         report = llm_generate_report(
             prediction_label=label,
             confidence_score=confidence,
+            conditions=conditions,
+            scan_type=scan_type,
             region_hint=region_description or None,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000

@@ -17,7 +17,7 @@ export default function App() {
             <p className="font-display text-lg leading-tight text-clinical-ink md:text-xl">
               AI Medical Intelligence
             </p>
-            <p className="text-xs text-clinical-muted">Chest X-ray decision support demo</p>
+            <p className="text-xs text-clinical-muted">Multi-disease imaging decision support demo</p>
           </NavLink>
           <nav className="flex shrink-0 gap-6">
             <NavLink to="/" end className={linkClass}>

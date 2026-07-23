@@ -14,18 +14,20 @@ class Base(DeclarativeBase):
 
 class Prediction(Base):
     """
-    Stored inference result for one uploaded chest X-ray.
+    Stored inference result for one uploaded study.
 
-    Columns match the product DB design:
-    id, image_path, heatmap_path, prediction_label, confidence, report_text, created_at
+    ``prediction_label`` holds a JSON-serialized list of
+    ``{"label": str, "confidence": float}`` objects (length 1 for binary modules,
+    1–N for multi-label chest X-ray).
     """
 
     __tablename__ = "predictions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    scan_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     image_path: Mapped[str] = mapped_column(String(512), nullable=False)
     heatmap_path: Mapped[str] = mapped_column(String(512), nullable=False)
-    prediction_label: Mapped[str] = mapped_column(String(50), nullable=False)
+    prediction_label: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     report_text: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(

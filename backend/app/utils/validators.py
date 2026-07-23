@@ -16,9 +16,13 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 def validate_scan_type(scan_type: str) -> str:
     key = (scan_type or "").strip().lower()
     if key not in SCAN_TYPES:
+        allowed = ", ".join(f'"{s}"' for s in SCAN_TYPES)
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown scan_type '{scan_type}'. Expected one of: {list(SCAN_TYPES)}",
+            detail=(
+                f"Invalid scan_type '{scan_type}'. "
+                f"Allowed values are: {allowed}."
+            ),
         )
     return key
 
