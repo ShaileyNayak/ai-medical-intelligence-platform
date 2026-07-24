@@ -9,7 +9,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from dataset import CLASS_NAMES, ChestXrayDataset, get_transforms
@@ -23,11 +23,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--image-size", type=int, default=224)
-    parser.add_argument("--val-ratio", type=float, default=0.2)
+    parser.add_argument(
+        "--val-ratio",
+        type=float,
+        default=0.2,
+        help="Used only when data/val/ is missing (carve from train; never from test)",
+    )
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--checkpoint-dir", type=Path, default=Path("checkpoints"))
     parser.add_argument("--pretrained", action="store_true", default=True)
     parser.add_argument("--no-pretrained", action="store_true")
+    parser.add_argument(
+        "--export",
+        type=Path,
+        default=None,
+        help="Optional path to also save best checkpoint (e.g. backend model_weights)",
+    )
     return parser.parse_args()
 
 
@@ -60,30 +71,75 @@ def run_epoch(model, loader, criterion, optimizer, device, train: bool):
     return total_loss / max(n, 1), total_acc / max(n, 1)
 
 
+class _RemappedSubset(Dataset):
+    """Subset with eval transforms (avoids train augmentations on val)."""
+
+    def __init__(self, base: ChestXrayDataset, indices: list[int], transform) -> None:
+        self.base = base
+        self.indices = indices
+        self.transform = transform
+
+    def __len__(self) -> int:
+        return len(self.indices)
+
+    def __getitem__(self, i: int):
+        path, label = self.base.samples[self.indices[i]]
+        from PIL import Image
+
+        image = Image.open(path).convert("RGB")
+        return self.transform(image), label
+
+
+def _load_train_val(args: argparse.Namespace):
+    """
+    Train/val only — the held-out ``test/`` folder is never opened here.
+
+    Prefer explicit ``val/`` when present; otherwise carve val from ``train/``
+    with a fixed generator (reproducible, still disjoint from ``test/``).
+    """
+    train_raw = ChestXrayDataset(
+        args.data_dir,
+        split="train",
+        transform=get_transforms("train", args.image_size),
+    )
+    if len(train_raw) < 4:
+        raise SystemExit(
+            f"Not enough train images under {args.data_dir}/train. "
+            "Run prepare_demo_data.py first. Never fall back to loading test/."
+        )
+
+    val_raw = ChestXrayDataset(
+        args.data_dir,
+        split="val",
+        transform=get_transforms("val", args.image_size),
+    )
+    if len(val_raw) > 0:
+        print(f"Using explicit splits: train={len(train_raw)} val={len(val_raw)} (test unused)")
+        return train_raw, val_raw
+
+    # Carve val from train only (test folder stays untouched → no leakage)
+    n = len(train_raw)
+    val_size = max(1, int(n * args.val_ratio))
+    train_size = n - val_size
+    g = torch.Generator().manual_seed(42)
+    perm = torch.randperm(n, generator=g).tolist()
+    train_idx, val_idx = perm[:train_size], perm[train_size:]
+    train_ds = _RemappedSubset(train_raw, train_idx, get_transforms("train", args.image_size))
+    val_ds = _RemappedSubset(train_raw, val_idx, get_transforms("val", args.image_size))
+    print(
+        f"No data/val — carved from train only: "
+        f"train={len(train_ds)} val={len(val_ds)} (test/ never loaded)"
+    )
+    return train_ds, val_ds
+
+
 def main() -> None:
     args = parse_args()
     pretrained = args.pretrained and not args.no_pretrained
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     args.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-    full = ChestXrayDataset(
-        args.data_dir,
-        split="train",
-        transform=get_transforms("train", args.image_size),
-    )
-    if len(full) == 0:
-        # try without split awareness
-        full = ChestXrayDataset(args.data_dir, split="all", transform=get_transforms("train", args.image_size))
-    if len(full) < 4:
-        raise SystemExit(
-            f"Not enough images found under {args.data_dir}. "
-            "Expected folders like train/Normal, train/Pneumonia."
-        )
-
-    val_size = max(1, int(len(full) * args.val_ratio))
-    train_size = len(full) - val_size
-    train_ds, val_ds = random_split(full, [train_size, val_size])
-    # Use eval transforms for val by wrapping if possible — keep simple shared transform for demo
+    train_ds, val_ds = _load_train_val(args)
 
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers
@@ -98,7 +154,9 @@ def main() -> None:
 
     history = []
     best_val_acc = -1.0
-    best_path = args.checkpoint_dir / "best_model.pt"
+    best_path = args.checkpoint_dir / "best_model.pth"
+    # keep legacy .pt name as alias path for older docs
+    best_path_legacy = args.checkpoint_dir / "best_model.pt"
 
     for epoch in range(1, args.epochs + 1):
         t0 = time.time()
@@ -120,15 +178,18 @@ def main() -> None:
         )
         if val_acc >= best_val_acc:
             best_val_acc = val_acc
-            torch.save(
-                {
-                    "model_state_dict": model.state_dict(),
-                    "class_names": CLASS_NAMES,
-                    "val_acc": val_acc,
-                    "epoch": epoch,
-                },
-                best_path,
-            )
+            payload = {
+                "model_state_dict": model.state_dict(),
+                "class_names": CLASS_NAMES,
+                "val_acc": val_acc,
+                "epoch": epoch,
+                "image_size": args.image_size,
+            }
+            torch.save(payload, best_path)
+            torch.save(payload, best_path_legacy)
+            if args.export:
+                args.export.parent.mkdir(parents=True, exist_ok=True)
+                torch.save(payload, args.export)
             print(f"  saved best checkpoint -> {best_path}")
 
     (args.checkpoint_dir / "train_history.json").write_text(json.dumps(history, indent=2))

@@ -159,19 +159,19 @@ git lfs track "*.pth"
 git add .gitattributes backend/model_weights/
 ```
 
-### Sample metrics (smoke / tiny holdout)
+### Model metrics (chest X-ray)
 
-The checked-in chest checkpoint was validated on a **very small** holdout (`n=10`). Treat these as a plumbing check, not production performance — retrain on the full dataset for real metrics.
+**Chest X-ray:** Accuracy 100%, Precision 100%, Recall 100%, AUC 1.0 (evaluated on a held-out test set of **n=80**; train/val/test are content-disjoint. These numbers come from a synthetic demo dataset and should be interpreted cautiously — validate on a larger real-world test set, e.g. Kaggle Chest X-Ray Images (Pneumonia), before drawing performance conclusions).
 
 | Metric | Value |
 |--------|-------|
-| Accuracy | 1.00 |
-| Precision | 1.00 |
-| Recall | 1.00 |
-| F1 | 1.00 |
-| AUC | 1.00 |
+| Accuracy | 100% |
+| Precision | 100% |
+| Recall | 100% |
+| AUC | 1.0 |
+| Test set size | 80 |
 
-Source: `backend/model_weights/metrics_report.json`.
+Source: `backend/model_weights/chest_xray/metrics_report.json`.
 
 ---
 

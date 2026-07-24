@@ -1,0 +1,61 @@
+{
+  "scan_type": "brain_mri",
+  "best_model_path": "C:\\Users\\SHAILEY NAYAK\\OneDrive\\Desktop\\ai-medical-intelligence-platform\\ai-medical-intelligence-platform\\backend\\model_weights\\brain_mri\\best_model.pth",
+  "test_split": "test",
+  "class_names": [
+    "Tumor",
+    "No Tumor"
+  ],
+  "n_test": 12,
+  "seconds": 86.99,
+  "test_metrics": {
+    "accuracy": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "n_samples": 12,
+    "confusion_matrix": [
+      [
+        6,
+        0
+      ],
+      [
+        0,
+        6
+      ]
+    ],
+    "classification_report": {
+      "Tumor": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 6.0
+      },
+      "No Tumor": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 6.0
+      },
+      "accuracy": 1.0,
+      "macro avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 12.0
+      },
+      "weighted avg": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1-score": 1.0,
+        "support": 12.0
+      }
+    },
+    "auc": 1.0
+  },
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "auc": 1.0,
+  "f1": 1.0
+}
