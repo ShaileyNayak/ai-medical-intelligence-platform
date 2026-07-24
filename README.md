@@ -1,5 +1,15 @@
 # AI Medical Intelligence Platform
 
+## Live Links
+
+| | |
+|---|---|
+| **Frontend** | https://ai-medical-intelligence-platform.vercel.app |
+| **Backend / API Docs** | https://ai-medical-intelligence-platform.onrender.com/docs |
+| **GitHub** | https://github.com/ShaileyNayak/ai-medical-intelligence-platform |
+
+> **Note:** The backend runs on Render’s free tier and may take **30–50 seconds** to wake up on the first request after idle. If the UI looks stuck, wait and retry.
+
 Multi-disease medical imaging demo: upload a scan, run a CNN, get a **Grad-CAM** heatmap and an assistive text report, then browse history in a React dashboard.
 
 **Not a medical device.** Educational / portfolio prototype only — not for clinical diagnosis or treatment.
@@ -218,12 +228,12 @@ See `backend/.env.example` and root `.env.example`.
 3. Env: `VITE_API_BASE_URL=https://\<your-backend\>` (no trailing slash)
 4. Redeploy after changing that variable (it is baked in at build time).
 
-After deploy, replace the placeholders below:
+After deploy, the live URLs are:
 
 | | URL |
 |---|-----|
-| Backend | _add Render URL_ |
-| Frontend | _add Vercel / Render URL_ |
+| Backend | https://ai-medical-intelligence-platform.onrender.com |
+| Frontend | https://ai-medical-intelligence-platform.vercel.app |
 
 ---
 
