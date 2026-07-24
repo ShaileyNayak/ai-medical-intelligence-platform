@@ -1,11 +1,13 @@
+import { getApiBaseUrl } from "../api/baseUrl.js";
 import { normalizePredictions } from "../constants/scanTypes.js";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export function resolveMediaUrl(url) {
   if (!url) return null;
-  const base = import.meta.env.VITE_API_BASE_URL || "";
-  return `${base}${url}`;
+  if (/^https?:\/\//i.test(url)) return url;
+  const path = url.startsWith("/") ? url : `/${url}`;
+  return `${getApiBaseUrl()}${path}`;
 }
 
 /**

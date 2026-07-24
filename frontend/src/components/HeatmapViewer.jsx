@@ -1,7 +1,7 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+import { resolveMediaUrl } from "../utils/historyStats.js";
 
 function resolveSrc(url, fallback) {
-  if (url) return `${API_BASE}${url}`;
+  if (url) return resolveMediaUrl(url);
   return fallback || null;
 }
 

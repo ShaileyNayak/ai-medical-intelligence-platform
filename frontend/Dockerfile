@@ -8,8 +8,12 @@ RUN npm install
 
 COPY . .
 
-# Empty base URL → browser calls same origin; nginx proxies /api and /static
+# Prefer absolute backend origin for Vercel / split deploys.
+# Leave unset in Compose so build falls back to http://localhost:8000
+# (or set VITE_API_URL / VITE_API_BASE_URL explicitly).
+ARG VITE_API_URL=
 ARG VITE_API_BASE_URL=
+ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 RUN npm run build
