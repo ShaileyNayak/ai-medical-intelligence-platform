@@ -12,9 +12,11 @@ from app.api import health_router, history_router, predict_router
 from app.core.config import settings
 from app.core.logging import new_request_id, setup_logging
 from app.db.database import init_db
+from app.models._shared import configure_torch_runtime
 from app.services.inference_service import get_inference_service
 
 setup_logging()
+configure_torch_runtime()
 
 
 @asynccontextmanager
@@ -22,6 +24,7 @@ async def lifespan(_app: FastAPI):
     Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
     Path(settings.heatmap_dir).mkdir(parents=True, exist_ok=True)
     init_db()
+    # Create the service facade only — do not preload ResNet weights (Render 512MB).
     get_inference_service()
     yield
 

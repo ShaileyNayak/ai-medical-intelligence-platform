@@ -12,6 +12,25 @@ from torchvision import models
 IMAGENET_MEAN: Sequence[float] = (0.485, 0.456, 0.406)
 IMAGENET_STD: Sequence[float] = (0.229, 0.224, 0.225)
 
+_TORCH_CONFIGURED = False
+
+
+def configure_torch_runtime() -> None:
+    """Minimize CPU/thread memory overhead (important on 512MB hosts)."""
+    global _TORCH_CONFIGURED
+    if _TORCH_CONFIGURED:
+        return
+    torch.set_num_threads(1)
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        # Already initialized elsewhere — ignore.
+        pass
+    _TORCH_CONFIGURED = True
+
+
+configure_torch_runtime()
+
 
 def build_resnet18(num_classes: int = 2, pretrained: bool = False) -> nn.Module:
     try:
@@ -46,14 +65,18 @@ def load_resnet18_checkpoint(
     Load a ResNet18 checkpoint.
 
     Returns ``(model, meta, loaded_ok)``.
+    Model is always returned in ``eval()`` mode for inference memory savings.
     """
+    configure_torch_runtime()
     device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     path = Path(checkpoint_path)
     meta: dict = {"class_names": list(class_names or [])}
     loaded_ok = False
 
     if path.exists():
-        checkpoint = torch.load(path, map_location=device, weights_only=False)
+        # weights_only=False needed for training-meta checkpoints; map to CPU/GPU once.
+        with torch.inference_mode():
+            checkpoint = torch.load(path, map_location=device, weights_only=False)
         if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             state = checkpoint["model_state_dict"]
             meta = {k: v for k, v in checkpoint.items() if k != "model_state_dict"}
@@ -84,6 +107,8 @@ def load_resnet18_checkpoint(
 
     model.to(device)
     model.eval()
+    for param in model.parameters():
+        param.requires_grad_(False)
     meta["num_classes"] = num_classes
     return model, meta, loaded_ok
 

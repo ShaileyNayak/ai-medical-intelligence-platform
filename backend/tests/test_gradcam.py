@@ -93,3 +93,23 @@ def test_registry_get_model_by_scan_type():
     assert brain.scan_type == "brain_mri"
     assert skin.scan_type == "skin_lesion"
     assert get_model("chest_xray") is chest
+
+
+def test_lazy_load_status_does_not_instantiate_modules():
+    from app.models.registry import _instances, models_loaded_status
+
+    reset_registry()
+    status = models_loaded_status()
+    assert status == {
+        "chest_xray": False,
+        "brain_mri": False,
+        "skin_lesion": False,
+    }
+    assert _instances == {}
+
+    chest = get_model("chest_xray")
+    assert "chest_xray" in _instances
+    assert "brain_mri" not in _instances
+    assert "skin_lesion" not in _instances
+    assert get_model("chest_xray") is chest
+    assert models_loaded_status()["brain_mri"] is False

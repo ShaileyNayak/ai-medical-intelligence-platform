@@ -50,6 +50,8 @@ def _sqlite_ensure_predictions_schema(eng: Engine) -> None:
     ``create_all`` before ``scan_type`` / JSON ``prediction_label``.
 
     Production should use Alembic (``alembic upgrade head``).
+    Skips safely when the table uses a legacy column layout that cannot be
+    auto-migrated in place.
     """
     insp = inspect(eng)
     if "predictions" not in insp.get_table_names():
@@ -68,16 +70,26 @@ def _sqlite_ensure_predictions_schema(eng: Engine) -> None:
                     "WHERE scan_type IS NULL OR scan_type = ''"
                 )
             )
+            columns["scan_type"] = {"name": "scan_type"}
 
         # Ensure category index exists on older local DBs created without it
-        conn.execute(
-            text(
-                "CREATE INDEX IF NOT EXISTS ix_predictions_scan_type "
-                "ON predictions (scan_type)"
+        if "scan_type" in columns:
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_predictions_scan_type "
+                    "ON predictions (scan_type)"
+                )
             )
-        )
 
-        # Convert legacy plain-string labels to JSON lists when needed
+        # Convert legacy plain-string labels to JSON lists when needed.
+        # Older schemas used predicted_label / confidence_score — leave those alone.
+        if "prediction_label" not in columns or "confidence" not in columns:
+            logger.warning(
+                "Skipping prediction_label JSON migration — unexpected SQLite columns: %s",
+                sorted(columns),
+            )
+            return
+
         rows = conn.execute(
             text("SELECT id, prediction_label, confidence FROM predictions")
         ).fetchall()

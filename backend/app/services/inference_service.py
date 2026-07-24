@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.models.registry import get_model, models_loaded_status, warmup_all
+from app.models._shared import configure_torch_runtime
+from app.models.registry import get_model, models_loaded_status
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,10 @@ class InferenceService:
     @property
     def model_loaded(self) -> bool:
         status = models_loaded_status()
-        return bool(status.get("chest_xray"))
+        return any(status.values())
 
     def loaded_status(self) -> dict[str, bool]:
+        """Report only modules already resident — does not trigger lazy loads."""
         return models_loaded_status()
 
 
@@ -38,8 +40,10 @@ _inference_singleton: InferenceService | None = None
 
 
 def get_inference_service() -> InferenceService:
+    """Return the API facade. Does **not** preload Torch models."""
     global _inference_singleton
     if _inference_singleton is None:
-        warmup_all()
+        configure_torch_runtime()
+        logger.info("InferenceService ready (models load lazily per scan_type)")
         _inference_singleton = InferenceService()
     return _inference_singleton

@@ -96,9 +96,10 @@ class ChestXrayModel:
         tensor = self.transform(image).unsqueeze(0).to(self.device)
         return tensor, image
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def predict(self, image_path: str) -> dict[str, Any]:
         assert self.model is not None
+        self.model.eval()
         t0 = time.perf_counter()
         tensor, _ = self.preprocess(image_path)
         logits = self.model(tensor)

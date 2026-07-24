@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import io
+import os
 from pathlib import Path
+
+# Isolate tests from legacy local DBs (e.g. medical_ai.db with old columns).
+_TEST_DB = Path(__file__).resolve().parent / "_pytest_predictions.db"
+if _TEST_DB.exists():
+    _TEST_DB.unlink()
+os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB.as_posix()}"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +21,7 @@ from app.main import app
 
 @pytest.fixture()
 def client():
-    """FastAPI test client with lifespan (DB init + model warm-load)."""
+    """FastAPI test client with lifespan (DB init; models stay lazy)."""
     with TestClient(app) as c:
         yield c
 
